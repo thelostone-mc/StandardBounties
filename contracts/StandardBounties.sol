@@ -335,7 +335,8 @@ contract StandardBounties {
   /// @dev acceptFulfillment(): accept a given fulfillment
   /// @param _bountyId the index of the bounty
   /// @param _fulfillmentId the index of the fulfillment being accepted
-  function acceptFulfillment(uint _bountyId, uint _fulfillmentId)
+  /// @param _fee the fee amount to be charged
+  function acceptFulfillment(uint _bountyId, uint _fulfillmentId, uint256 _fee)
       public
       validateBountyArrayIndex(_bountyId)
       validateFulfillmentArrayIndex(_bountyId, _fulfillmentId)
@@ -346,13 +347,18 @@ contract StandardBounties {
   {
       fulfillments[_bountyId][_fulfillmentId].accepted = true;
       numAccepted[_bountyId]++;
-      bounties[_bountyId].balance -= bounties[_bountyId].fulfillmentAmount;
-      if (bounties[_bountyId].paysTokens){
-        require(tokenContracts[_bountyId].transfer(fulfillments[_bountyId][_fulfillmentId].fulfiller, bounties[_bountyId].fulfillmentAmount));
-      } else {
-        fulfillments[_bountyId][_fulfillmentId].fulfiller.transfer(bounties[_bountyId].fulfillmentAmount);
+      if(bounties[_bountyId].fulfillmentAmount > _fee) {
+        uint256 bountyAmount = bounties[_bountyId].fulfillmentAmount - _fee;
+        bounties[_bountyId].balance -= bounties[_bountyId].fulfillmentAmount;
+        if (bounties[_bountyId].paysTokens) {
+            // TODO : transfer fee to gitcoin
+            require(tokenContracts[_bountyId].transfer(fulfillments[_bountyId][_fulfillmentId].fulfiller, bountyAmount));
+        } else {
+            // TODO : transfer fee to gitcoin
+            fulfillments[_bountyId][_fulfillmentId].fulfiller.transfer(bountyAmount);
+        }
+        FulfillmentAccepted(_bountyId, msg.sender, _fulfillmentId);
       }
-      FulfillmentAccepted(_bountyId, msg.sender, _fulfillmentId);
   }
 
   /// @dev killBounty(): drains the contract of it's remaining
