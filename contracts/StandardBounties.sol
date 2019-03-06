@@ -58,6 +58,8 @@ contract StandardBounties {
       bool paysTokens;
       BountyStages bountyStage;
       uint balance;
+      uint _fee;
+      address _feeOwnerAddress;
   }
 
   struct Fulfillment {
@@ -97,6 +99,14 @@ contract StandardBounties {
 
   modifier amountIsNotZero(uint _amount) {
       require(_amount != 0);
+      _;
+  }
+
+  modifier validateFee(address _issuer, uint _amount, uint _fee, address _feeOwnerAddress) {
+      if(_fee) {
+        // TODO : Ensure _issuer != _feeOwnerAddress && _feeOwnerAddress != 0x0
+        require(_amount > _fee);
+      }
       _;
   }
 
@@ -169,15 +179,18 @@ contract StandardBounties {
       uint256 _fulfillmentAmount,
       address _arbiter,
       bool _paysTokens,
-      address _tokenContract
+      address _tokenContract,
+      uint _fee,
+      address _feeOwnerAddress
   )
       public
       validateDeadline(_deadline)
       amountIsNotZero(_fulfillmentAmount)
+      validateFee(_issuer, _fulfillmentAmount, _fee, _feeOwnerAddress)
       validateNotTooManyBounties
       returns (uint)
   {
-      bounties.push(Bounty(_issuer, _deadline, _data, _fulfillmentAmount, _arbiter, _paysTokens, BountyStages.Draft, 0));
+      bounties.push(Bounty(_issuer, _deadline, _data, _fulfillmentAmount, _arbiter, _paysTokens, BountyStages.Draft, 0, _fee, _feeOwnerAddress));
       if (_paysTokens){
         tokenContracts[bounties.length - 1] = HumanStandardToken(_tokenContract);
       }
@@ -202,12 +215,15 @@ contract StandardBounties {
       address _arbiter,
       bool _paysTokens,
       address _tokenContract,
-      uint256 _value
+      uint256 _value,
+      uint _fee,
+      address _feeOwnerAddress
   )
       public
       payable
       validateDeadline(_deadline)
       amountIsNotZero(_fulfillmentAmount)
+      validateFee(_issuer, _fulfillmentAmount, _fee, _feeOwnerAddress)
       validateNotTooManyBounties
       returns (uint)
   {
@@ -226,7 +242,9 @@ contract StandardBounties {
                             _arbiter,
                             _paysTokens,
                             BountyStages.Active,
-                            _value));
+                            _value,
+                            _fee,
+                            _feeOwnerAddress));
       BountyIssued(bounties.length - 1);
       ContributionAdded(bounties.length - 1, msg.sender, _value);
       BountyActivated(bounties.length - 1, msg.sender);
